@@ -46,7 +46,7 @@ def merge_words(results, threshold=30):
 # Fungsi OCR untuk mendeteksi teks pada gambar
 def ocr_from_image(image: np.ndarray) -> List[str]:
     # Inisialisasi EasyOCR dengan folder model yang sudah ada
-    model_path = ".EasyOCR/model"  # Lokasi folder model di repository
+    model_path = "model"  # Lokasi folder model di repository
     detect = easyocr.Reader(['id'], gpu=False, model_storage_directory=model_path)
 
     # Lakukan OCR
