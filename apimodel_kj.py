@@ -45,8 +45,21 @@ def merge_words(results, threshold=30):
 
 # Fungsi OCR untuk mendeteksi teks pada gambar
 def ocr_from_image(image: np.ndarray) -> List[str]:
+    # Lokasi folder model di repository
+    model_path = "model"
+
+    # Check if model folder exists
+    if not os.path.exists(model_path):
+        logger.error(f"Folder model tidak ditemukan: {model_path}")
+        raise FileNotFoundError(f"Folder model tidak ditemukan: {model_path}")
+    
+    if not os.listdir(model_path):
+        logger.error(f"Folder model kosong: {model_path}")
+        raise FileNotFoundError(f"Folder model kosong: {model_path}")
+    
+    logger.info(f"Folder model ditemukan di: {model_path}")
+
     # Inisialisasi EasyOCR dengan folder model yang sudah ada
-    model_path = "model"  # Lokasi folder model di repository
     detect = easyocr.Reader(['id'], gpu=False, model_storage_directory=model_path)
 
     # Lakukan OCR
@@ -108,6 +121,9 @@ async def process_image(file: UploadFile = File(...)):
             return {"message": "Tidak ada teks yang terdeteksi."}
 
         return {"detected_text": detected_text}
+    except FileNotFoundError as e:
+        logger.error(f"Kesalahan: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=400)
     except Exception as e:
         logger.exception(f"Terjadi kesalahan: {e}")
         return JSONResponse(content={"error": "Kesalahan internal server."}, status_code=500)
