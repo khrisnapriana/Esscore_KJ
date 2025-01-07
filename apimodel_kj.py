@@ -1,6 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
-import uvicorn
 import cv2 as cv
 import easyocr
 import numpy as np
@@ -8,10 +7,17 @@ from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
+import psutil  # Import psutil untuk memantau penggunaan RAM
 
 # Konfigurasi logger
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+# Fungsi untuk memantau penggunaan RAM
+def log_memory_usage():
+    process = psutil.Process(os.getpid())
+    memory_usage = process.memory_info().rss / 1024 / 1024  # Konversi ke MB
+    logger.info(f"Penggunaan RAM saat ini: {memory_usage:.2f} MB")
 
 # Inisialisasi FastAPI
 app = FastAPI()
@@ -44,22 +50,9 @@ def merge_words(results, threshold=30):
     return merged_lines
 
 # Fungsi OCR untuk mendeteksi teks pada gambar
-def ocr_from_image(image: np.ndarray) -> List[str]:
-    # Lokasi folder model di repository
-    model_path = "model"
-
-    # Check if model folder exists
-    if not os.path.exists(model_path):
-        logger.error(f"Folder model tidak ditemukan: {model_path}")
-        raise FileNotFoundError(f"Folder model tidak ditemukan: {model_path}")
-    
-    if not os.listdir(model_path):
-        logger.error(f"Folder model kosong: {model_path}")
-        raise FileNotFoundError(f"Folder model kosong: {model_path}")
-    
-    logger.info(f"Folder model ditemukan di: {model_path}")
-
+def ocr(image: np.ndarray) -> List[str]:
     # Inisialisasi EasyOCR dengan folder model yang sudah ada
+    model_path = "model"  # Lokasi folder model di repository
     detect = easyocr.Reader(['id'], gpu=False, model_storage_directory=model_path)
 
     # Lakukan OCR
@@ -85,12 +78,16 @@ app.add_middleware(
     allow_headers=["*"],  # Izinkan semua header
 )
 
+# Endpoint untuk tes deploy
 @app.get("/")
 def test_deploy():
-    return {"APImodelkunci deployed"}
+    return {"apimodelkunci deployed."}
 
-@app.post("/ocr")
+# Endpoint untuk model kj
+@app.post("/kj")
 async def process_image(file: UploadFile = File(...)):
+    log_memory_usage()  # Log penggunaan RAM
+
     logger.info(f"File diterima: {file.filename}")  # Menggunakan logger di sini
 
     # Validasi tipe file
@@ -113,17 +110,16 @@ async def process_image(file: UploadFile = File(...)):
         logger.info("Gambar berhasil di-decode, memulai OCR.")
         
         # Proses OCR
-        detected_text = ocr_from_image(image)
+        detected_text = ocr(image)
         logger.info(f"Teks terdeteksi: {detected_text}")
 
         if not detected_text:
             logger.warning("Tidak ada teks yang terdeteksi.")
             return {"message": "Tidak ada teks yang terdeteksi."}
-
+        
+        # Kembalikan hasil deteksi teks
         return {"detected_text": detected_text}
-    except FileNotFoundError as e:
-        logger.error(f"Kesalahan: {e}")
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+    
     except Exception as e:
         logger.exception(f"Terjadi kesalahan: {e}")
         return JSONResponse(content={"error": "Kesalahan internal server."}, status_code=500)
